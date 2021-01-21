@@ -2,18 +2,29 @@
 #include <map>
 #include <vector>
 #include <cmath>
-#include <iomanip>
 
 using namespace std;
 
 template<typename T>
 
 struct Node {
-    T information = 0;
-    int height = 0;
-    Node* right = nullptr;
-    Node* left = nullptr;
+	T information;
+	int height = 0;
+	Node* right;
+	Node* left;
 };
+
+template<typename T>
+
+void fill_vec(Node<T>* tree, vector<vector<pair<T, char>>>& vec, int h, int h_max, char side) {
+    if (empty(tree) || (h > h_max)) {
+        return;
+    }
+    pair add = {tree->information, side};
+    vec[h].push_back(add);
+    fill_vec(tree->left, vec, ++h, h_max, 'L');
+    fill_vec(tree->right, vec, h, h_max, 'R');
+}
 
 template<typename T>
 
@@ -37,7 +48,7 @@ int height(Node<T>* tree) {  // делаем функцию height, чтобы �
 
 template<typename T>
 
-Node<T>* find_max(Node<T>* tree) {  //находим максимальный элемент, пригодится в удалении
+Node<T>* find_max(Node<T>* tree) {
     if (!empty(tree->right)) {
         return find_max(tree);
     }
@@ -48,66 +59,108 @@ Node<T>* find_max(Node<T>* tree) {  //находим максимальный э
 template<typename T>
 
 Node<T>* constructor(T new_info) {
-    auto new_tree = new Node<T>;
-    new_tree->information = new_info;
-    new_tree->height = 1;
-    new_tree->left = nullptr;
-    new_tree->right = nullptr;
+	auto new_tree = new Node<T>;
+	new_tree->information = new_info;
+	new_tree->height = 1;
+	new_tree->left = nullptr;
+	new_tree->right = nullptr;
     return new_tree;
 }
 
 template<typename T>
 
-void fix_height(Node<T>* tree) {  //фиксим высоту после вращений
+int variance(Node<T>* tree) {
+	return height(tree->left) - height(tree->right);
+}
+
+template<typename T>
+
+Node<T>* small_left_rotate(Node<T>* tree) {
+    Node<T>* NodeD = tree->right->left;
+    Node<T>* NodeA = tree;
+    tree = tree->right;
+    tree->left = NodeA;
+    NodeA->right = NodeD;
+    NodeA->height = height(NodeD) + 1;
     if (height(tree->left) > height(tree->right)) {
         tree->height = height(tree->left) + 1;
     } else {
         tree->height = height(tree->right) + 1;
     }
+    return tree;
 }
 
 template<typename T>
 
-int variance(Node<T>* tree) {  //разница высот, чтобы определить, нужно ли балансировать
-    return height(tree->left) - height(tree->right);
+Node<T>* small_right_rotate(Node<T>* tree) {
+    Node<T>* NodeD = tree->left->right;
+    Node<T>* NodeA = tree;
+    tree = tree->left;
+    tree->right = NodeA;
+    NodeA->left = NodeD;
+    NodeA->height = height(NodeD) + 1;
+    if (height(tree->left) > height(tree->right)) {
+        tree->height = height(tree->left) + 1;
+    } else {
+        tree->height = height(tree->right) + 1;
+    }
+    return tree;
 }
 
 template<typename T>
 
-Node<T>* left_rotate(Node<T>* tree) {  //левое малое вращение
-    Node<T>* change = tree->right;
-    tree->right = change->left;
-    change->left = tree;
-    fix_height(tree);
-    fix_height(change);
-    return change;
+Node<T>* big_left_rotate(Node<T>* tree) {
+    Node<T>* NodeA = tree;
+    Node<T>* NodeB = tree->right;
+    Node<T>* NodeC = tree->right->left;
+    Node<T>* NodeE = tree->right->left->left;
+    Node<T>* NodeF = tree->right->left->right;
+    tree = NodeC;
+    tree->left = NodeA;
+    NodeA->right = NodeE;
+    tree->right = NodeB;
+    NodeB->left = NodeF;
+    ++tree->height;
+    NodeA->height -= 2;
+    --NodeB->height;
+    return tree;
 }
 
 template<typename T>
 
-Node<T>* right_rotate(Node<T>* tree) {  //правое малое вращение
-    Node<T>* change = tree->left;
-    tree->left = change->right;
-    change->right = tree;
-    fix_height(tree);
-    fix_height(change);
-    return change;
+Node<T>* big_right_rotate(Node<T>* tree) {
+    Node<T>* NodeA = tree;
+    Node<T>* NodeB = NodeA->left;
+    Node<T>* NodeC = NodeB->right;
+    Node<T>* NodeE = NodeC->left;
+    Node<T>* NodeF = NodeC->right;
+    tree = NodeC;
+    tree->left = NodeB;
+    NodeB->right = NodeE;
+    tree->right = NodeA;
+    NodeA->left = NodeF;
+    ++tree->height;
+    NodeA->height -= 2;
+    --NodeB->height;
+    return tree;;
 }
 
 template<typename T>
 
 Node<T>* do_balanse(Node<T>* tree) {
-    fix_height(tree);
-    if (variance(tree) >= 2) {             //если различие в высоте 2, то есть если нужна балансировка
-        if (variance(tree->left) < 0) {    //проверка на большое правое вращение, а именно лево-правое малые вращения
-            tree->left = left_rotate(tree->left);
-        }
-        return right_rotate(tree);
-    } else if (variance(tree) <= -2) {     //если различие -2, то есть высота правого поддерева больше высоты левого
-        if (variance(tree->right) > 0) {
-            tree->right = right_rotate(tree->right);
-        }
-        return left_rotate(tree);
+    if (height(tree->left) > height(tree->right)) {
+        tree->height = height(tree->left) + 1;
+    } else {
+        tree->height = height(tree->right) + 1;
+    }
+    if ((variance(tree) == -2) && ((variance(tree->right) == 0) || (variance(tree->right) == -1))) {
+        tree = small_left_rotate(tree);
+    } else if ((variance(tree) == 2) && ((variance(tree->left) == 0) || (variance(tree->left) == 1))) {
+        tree = small_right_rotate(tree);
+    } else if ((variance(tree) == -2) && (variance(tree->right) > 0)) {
+        tree = big_left_rotate(tree);
+    } else if ((variance(tree) == 2) && (variance(tree->left) < 0)) {
+        tree = big_right_rotate(tree);
     }
     return tree;
 }
@@ -162,54 +215,57 @@ Node<T>* delete_node(Node<T>* tree, T information) {
     return do_balanse(tree);
 }
 
-bool flag = true; //объявляем глобальную переменную
-
 template<typename T>
 
-void true_print(Node<T>* tree, int spaces, int h, int need_height) {
-    if (h == need_height) {  //если высота, которая нужна
-            if (flag) {  //первый элемент на высоте выводим с кол-вом пробелом spaces + 1(получено экспериментальным путем:D)
-                cout << setw(spaces + 1);
-                if (!empty(tree)) {             //проверки на пустоту нужны, чтобы не обращаться к tree->information
-                    cout << tree->information;  //так как в случае пустой ячейки будут ошибки
-                } else {
-                    cout << ' ';
-                }
-            } else {  //поледующие spaces * 2
-                cout << setw(spaces * 2);
-                if (!empty(tree)) {
-                    cout << tree->information;
-                } else {
-                    cout << ' ';
-                }
-            }
-        flag = false;
-        return;  //если на ходим элемент, то дальше можно не идти
+int width(T elem) {
+    int count = 0;
+    while (elem != 0) {
+        ++count;
+        elem /= 10;
     }
-    if (empty(tree)) {
-        return;
-    }
-    true_print(tree->left, spaces, ++h, need_height);  //рекурсивно ищем элементы на нужной высоте
-    true_print(tree->right, spaces, h, need_height);
+    return count;
 }
 
 template<typename T>
 
 void print_tree(Node<T>* tree, int count_of_spaces) {
-    int spaces = pow(2, tree->height - 1) * count_of_spaces;  //математически вычисляем правильное кол-во пробелов
-    for (int i = 1; i <= tree->height; ++i) {
-        flag = true;
-        true_print(tree, spaces, 1, i);
-        cout << endl;
+    vector<vector<pair<T, char>>> vec_tree(tree->height);
+    fill_vec(tree, vec_tree, 0, tree->height - 1, 'R');
+    int spaces = pow(2, tree->height - 1) * count_of_spaces;
+    for (vector<pair<T, char>> i : vec_tree) {
+        char prev = 0;
+        int n = 1;
+        int width_elem = 0;
+        int num_elem = 1;
+        T last_elem;
+        for (pair<T, char> j : i) {
+            (num_elem == 1) ? (n = 1) : (n = 2);
+            for (int i = 0; i < spaces * n - width_elem; ++i) {
+                cout << ' ';
+            }
+            if (prev != j.second) {
+                cout << j.first;
+            }
+            prev = j.second;
+            ++num_elem;
+            width_elem = width(j.first);
+            last_elem = j.first;
+        }
         spaces /= 2;
+        cout << endl;
     }
 }
 
 int main() {
-    Node<int>* tree = constructor(0);
-    for (int i = 1; i < 25; ++i) {  //пихаем в дерево значения от 0 до 25
-        tree = insert_node(tree, i);
-    }
-    print_tree(tree, 3);  //выводим с разницей у листьев 3
-    return 0;
+    Node<int>* tree = constructor(5);
+    tree = insert_node(tree, 4);
+    tree = insert_node(tree, 7);;
+    tree = insert_node(tree, 6);
+    tree = insert_node(tree, 8);
+    tree = insert_node(tree, 9);
+    tree = insert_node(tree, 10);
+    tree = delete_node(tree, 10);
+    tree = insert_node(tree, 11);
+    print_tree(tree, 3);
+	return 0;
 }
